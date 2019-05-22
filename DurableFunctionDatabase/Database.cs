@@ -17,7 +17,7 @@ namespace DurableFunctionDatabase
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
             string key = context.GetInput<string>();
-            return await context.CallActivityAsync<string>("GET", key);
+            return await context.CallActivityAsync<string>("Database_GET", key);
         }
 
         [FunctionName("Database_POST_Orchestrator")]
@@ -25,17 +25,17 @@ namespace DurableFunctionDatabase
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
             string key = context.GetInput<string>();
-            return await context.CallActivityAsync<string>("POST", key);
+            return await context.CallActivityAsync<string>("Database_POST", key);
         }
 
         [FunctionName("Database_GET")]
-        public static string GET([ActivityTrigger] string key, ILogger log)
+        public static string DatabaseGet([ActivityTrigger] string key, ILogger log)
         {
             return "GET";
         }
 
         [FunctionName("Database_POST")]
-        public static string POST([ActivityTrigger] string key, ILogger log)
+        public static string DatabasePost([ActivityTrigger] string key, ILogger log)
         {
             return "POST";
         }
