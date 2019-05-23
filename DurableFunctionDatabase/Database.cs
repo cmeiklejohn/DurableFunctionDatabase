@@ -91,7 +91,8 @@ namespace DurableFunctionDatabase
             // POST request
             else if(req.Method == HttpMethod.Post)
             {
-                var value = random.Next().ToString();
+                var content = req.Content;
+                string value = content.ReadAsStringAsync().Result;
                 instanceId = await starter.StartNewAsync("Database_POST_Orchestrator", new WriteOperation(KEY, value));
                 log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
                 return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, System.TimeSpan.MaxValue);
