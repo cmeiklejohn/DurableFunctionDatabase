@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -12,32 +13,62 @@ namespace DurableFunctionDatabase
     {
         public static string KEY = "1";
 
+        public class WriteOperation
+        {
+            public string Key { get; set; }
+
+            public string Value { get; set; }
+
+            public WriteOperation(string key, string value)
+            {
+                Key = key;
+                Value = value;
+            }
+        }
+
+        [FunctionName("Register")]
+        public static void Register(
+            [EntityTrigger] IDurableEntityContext ctx)
+        {
+            string currentValue = ctx.GetState<string>();
+            string operand = ctx.GetInput<string>();
+
+            switch (ctx.OperationName)
+            {
+                case "set":
+                    currentValue = operand;
+                    ctx.SetState(currentValue);
+                    ctx.Return(currentValue);
+                    break;
+                case "get":
+                    ctx.Return(currentValue);
+                    break;
+            }
+        }
+
         [FunctionName("Database_GET_Orchestrator")]
-        public static async Task<string> DatabaseGetOrchestrator(
+        public static async Task<string> DatabaseGetOrchestratorAsync(
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
-            string key = context.GetInput<string>();
-            return await context.CallActivityAsync<string>("Database_GET", key);
+            var key = context.GetInput<string>();
+
+            Random random = new Random();
+            var value = random.Next().ToString();
+
+            EntityId id = new EntityId(nameof(Register), key);
+
+            return await context.CallEntityAsync<string>(id, "get", value);
         }
 
         [FunctionName("Database_POST_Orchestrator")]
-        public static async Task<string> DatabasePostOrchestrator(
+        public static async Task<string> DatabasePostOrchestratorAsync(
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
-            string key = context.GetInput<string>();
-            return await context.CallActivityAsync<string>("Database_POST", key);
-        }
+            var operation = context.GetInput<WriteOperation>();
 
-        [FunctionName("Database_GET")]
-        public static string DatabaseGet([ActivityTrigger] string key, ILogger log)
-        {
-            return "GET";
-        }
+            EntityId id = new EntityId(nameof(Register), operation.Key);
 
-        [FunctionName("Database_POST")]
-        public static string DatabasePost([ActivityTrigger] string key, ILogger log)
-        {
-            return "POST";
+            return await context.CallEntityAsync<string>(id, "set", operation.Value);
         }
 
         [FunctionName("Database_HttpStart")]
@@ -47,21 +78,23 @@ namespace DurableFunctionDatabase
             ILogger log)
         {
             string instanceId;
+            Random random = new Random();
 
             // GET request
-            if(req.Method == HttpMethod.Get)
+            if (req.Method == HttpMethod.Get)
             {
-                instanceId = await starter.StartNewAsync("Database_POST_Orchestrator", KEY);
+                instanceId = await starter.StartNewAsync("Database_GET_Orchestrator", KEY);
                 log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
-                return starter.CreateCheckStatusResponse(req, instanceId);
+                return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, System.TimeSpan.MaxValue);
             }
 
             // POST request
             else if(req.Method == HttpMethod.Post)
             {
-                instanceId = await starter.StartNewAsync("Database_POST_Orchestrator", KEY);
+                var value = random.Next().ToString();
+                instanceId = await starter.StartNewAsync("Database_POST_Orchestrator", new WriteOperation(KEY, value));
                 log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
-                return starter.CreateCheckStatusResponse(req, instanceId);
+                return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, System.TimeSpan.MaxValue);
             }
 
             // Otherwise.
