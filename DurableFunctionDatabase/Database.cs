@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
@@ -31,11 +32,11 @@ namespace DurableFunctionDatabase
             [EntityTrigger] IDurableEntityContext ctx)
         {
             string currentValue = ctx.GetState<string>();
-            string operand = ctx.GetInput<string>();
 
             switch (ctx.OperationName)
             {
                 case "set":
+                    string operand = ctx.GetInput<string>();
                     currentValue = operand;
                     ctx.SetState(currentValue);
                     ctx.Return(currentValue);
@@ -52,12 +53,9 @@ namespace DurableFunctionDatabase
         {
             var key = context.GetInput<string>();
 
-            Random random = new Random();
-            var value = random.Next().ToString();
-
             EntityId id = new EntityId(nameof(Register), key);
 
-            return await context.CallEntityAsync<string>(id, "get", value);
+            return await context.CallEntityAsync<string>(id, "get");
         }
 
         [FunctionName("Database_POST_Orchestrator")]
