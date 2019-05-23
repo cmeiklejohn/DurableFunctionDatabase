@@ -78,7 +78,6 @@ namespace DurableFunctionDatabase
             ILogger log)
         {
             string instanceId;
-            Random random = new Random();
 
             // GET request
             if (req.Method == HttpMethod.Get)
