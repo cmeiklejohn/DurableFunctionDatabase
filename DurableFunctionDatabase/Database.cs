@@ -12,8 +12,6 @@ namespace DurableFunctionDatabase
 {
     public static class Database
     {
-        public static string KEY = "1";
-
         public class WriteOperation
         {
             public string Key { get; set; }
@@ -58,8 +56,8 @@ namespace DurableFunctionDatabase
             return await context.CallEntityAsync<string>(id, "get");
         }
 
-        [FunctionName("Database_POST_Orchestrator")]
-        public static async Task<string> DatabasePostOrchestratorAsync(
+        [FunctionName("Database_PUT_Orchestrator")]
+        public static async Task<string> DatabasePutOrchestratorAsync(
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
             var operation = context.GetInput<WriteOperation>();
@@ -71,7 +69,8 @@ namespace DurableFunctionDatabase
 
         [FunctionName("Database_HttpStart")]
         public static async Task<HttpResponseMessage> HttpStart(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestMessage req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "put", Route = "Database/{key}")] HttpRequestMessage req,
+            string key,
             [OrchestrationClient] IDurableOrchestrationClient starter,
             ILogger log)
         {
@@ -80,17 +79,17 @@ namespace DurableFunctionDatabase
             // GET request
             if (req.Method == HttpMethod.Get)
             {
-                instanceId = await starter.StartNewAsync("Database_GET_Orchestrator", KEY);
+                instanceId = await starter.StartNewAsync("Database_GET_Orchestrator", key);
                 log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
                 return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, System.TimeSpan.MaxValue);
             }
 
-            // POST request
-            else if(req.Method == HttpMethod.Post)
+            // PUT request
+            else if(req.Method == HttpMethod.Put)
             {
                 var content = req.Content;
                 string value = content.ReadAsStringAsync().Result;
-                instanceId = await starter.StartNewAsync("Database_POST_Orchestrator", new WriteOperation(KEY, value));
+                instanceId = await starter.StartNewAsync("Database_PUT_Orchestrator", new WriteOperation(key, value));
                 log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
                 return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, System.TimeSpan.MaxValue);
             }
